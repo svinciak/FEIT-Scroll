@@ -1,7 +1,8 @@
 import tkinter as tk
+import random as rnd
 from tkinter import messagebox
 from tkinter import font as tkfont
-import random as rn
+
 
 def onStartup():
     win = tk.Tk()
@@ -78,43 +79,88 @@ def show_help():
 def show_about():
     messagebox.showinfo("O hre", "Semestrálna práca Dungeon Crawler je hra vytvorená v Pythone využitím knižnice Tkinter. Vytvoril Kerata Marek.")
 
-##########
-## GAME ##
-##########
+#-----#
+# HRA #
+#-----#
+
+#----------#
+# PREMENNE #
+#----------#
+
+
+dungeonLevel = 1 
+playerHealth = 100
+enemyList = []
+letters = []
+letterButtons = []
+selectedLetters = []
+clickedOrder = []
+
+def generateLetters():
+    global dungeonLevel, letters
+    letters = []
+    letterCount = 4 + dungeonLevel * 2
+    
+    for i in range(letterCount):
+        l = chr(rnd.randint(97,122))
+        letters.append(l)
+
+def buttonClick(letterFromButton, button):
+    print("klikol som tlacidlo: " + letterFromButton)
+    selectedLetters.append(letterFromButton)
+    clickedOrder.append(button)
+    #zoradenie
+    button.grid(row=1, column=len(clickedOrder), padx=5)
+    button.config(state="disabled")
+    
+    
+    current_word = ""
+    for btn in clickedOrder:
+        current_word += btn['text'].lower()
+    print("Current word:", current_word)
+        
+def makeLetterButoons():
+    global letterButtons
+    letterButtons = []
+    for letter in letters:
+        btn = tk.Button(
+            lettersFrame,
+            text=letter.upper(),
+            font=("ARIAL", 18),
+            width=3,
+            height=1,
+        )
+        # zachova 2 hodnoty: aktualnePismeno, tlacidlo ->buttonClick(aktualnePismeno, tlacidlo)
+        l = letter
+        b = btn
+        btn.config(command=lambda l=letter, b=btn: buttonClick(l, b))
+        letterButtons.append(btn)
+    
+def draw():
+    # vykresli pismena
+    i = 1
+    for b in letterButtons:
+        b.grid(row=0, column=i, padx=5)
+        i+=1
 
 def createGame():
+    global game, enemyFrame,statsFrame, textFrame, lettersFrame, actionFrame
+    
+    # framy
     game = tk.Tk()
     game.title("Dungeon Crawler - Hra")
     game.geometry("1000x700")
     
     enemyFrame = tk.Frame(game, bg="red", width=250, height=175)
     enemyFrame.grid(row=0, column=0, sticky="nsew")
-    enemyImg = tk.PhotoImage(file="marci2.png")
-    enemyImg = enemyImg.subsample(9,9)
-    enemyLabel = tk.Label(enemyFrame, image=enemyImg)
-    enemyLabel.image = enemyImg
-    enemyLabel.place(x=0, y=0, relwidth=1, relheight=1)
-
     statsFrame = tk.Frame(game, bg="yellow")
     statsFrame.grid(row=0, column=1, sticky="nsew")
-    
-    
     textFrame = tk.Frame(game, bg="white")
     textFrame.grid(row=0, column=2, sticky="nsew")
-    
-    
     lettersFrame = tk.Frame(game, bg="black", height=200)
     lettersFrame.grid(row=1, column=0, columnspan=2, sticky="nsew")
-    
-    
     actionFrame = tk.Frame(game, bg="blue")
     actionFrame.grid(row=1, column=2, sticky="nsew")
-    actionImg = tk.PhotoImage(file="fredo1.png")
-    actionImg = actionImg.subsample(7,7)
-    actionLabel = tk.Label(actionFrame, image=actionImg)
-    actionLabel.image = actionImg
-    actionLabel.place(x=0, y=0, relwidth=1, relheight=1)
-    
     
     game.grid_rowconfigure(0, weight=3)
     game.grid_rowconfigure(1, weight=1)
@@ -122,16 +168,20 @@ def createGame():
     game.grid_columnconfigure(1, weight=1)
     game.grid_columnconfigure(2, weight=1)
     
-    return game, enemyFrame, statsFrame, textFrame, lettersFrame, actionFrame
+    # tlacidla na pismena
+    letters = generateLetters()
+    makeLetterButoons()
+
+#-------#
+# START #
+#-------#
 
 def startGame(menuWin):
     menuWin.destroy()
-    game = createGame()
+    createGame()
+    draw()
     game.mainloop()
 
-def updateDisplay(window):
-    
-    pass
 
 
 # Spustenie aplikácie
