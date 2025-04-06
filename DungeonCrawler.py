@@ -2,7 +2,7 @@ import tkinter as tk
 import random as rnd
 from tkinter import messagebox
 from tkinter import font as tkfont
-
+from PIL import Image, ImageTk
 
 def onStartup():
     win = tk.Tk()
@@ -95,6 +95,24 @@ letters = []
 letterButtons = []
 selectedLetters = []
 clickedOrder = []
+enemies = []
+batImgs = []
+animationID = None  
+currentImg = 0     
+currentEnemy = None  
+
+
+## transparent imgs: https://stackoverflow.com/questions/56554692/unable-to-put-transparent-png-over-a-normal-image-python-tkinter/56555164#56555164
+
+def loadImgs():
+    global batImgs
+    batImgs = []
+    try:
+        for i in range(15):
+            img = Image.open(f"sprites/bat/bat{i}.png")
+            batImgs.append(ImageTk.PhotoImage(img, master=game))
+    except Exception as e:
+        print("chyba pri nacitani obrazkov: " + str(e))
 
 def generateLetters():
     global dungeonLevel, letters
@@ -131,10 +149,38 @@ def makeLetterButoons():
             height=1,
         )
         # zachova 2 hodnoty: aktualnePismeno, tlacidlo ->buttonClick(aktualnePismeno, tlacidlo)
-        l = letter
-        b = btn
         btn.config(command=lambda l=letter, b=btn: buttonClick(l, b))
         letterButtons.append(btn)
+    
+def createEnemies():
+    global currentEnemy, animationID
+    
+    
+    if animationID:
+        enemyFrame.after_cancel(animationID)
+    for widget in enemyFrame.winfo_children():
+        widget.destroy()
+    
+    currentEnemy = {
+        "type": "bat",
+        "hp": 100,
+        "label": tk.Label(enemyFrame)
+    }
+    currentEnemy["label"].pack(pady=20)
+    enemies.append(currentEnemy)
+    animateEnemies()
+
+def animateEnemies():
+    global currentImg, animationID
+    
+    if not batImgs or not currentEnemy:
+        return
+    
+    currentEnemy["label"].config(image=batImgs[currentImg])
+    currentImg = (currentImg + 1) % len(batImgs)
+    
+    # 100ms = 10 FPS
+    animationID = enemyFrame.after(100, animateEnemies)
     
 def draw():
     # vykresli pismena
@@ -142,6 +188,7 @@ def draw():
     for b in letterButtons:
         b.grid(row=0, column=i, padx=5)
         i+=1
+
 
 def createGame():
     global game, enemyFrame,statsFrame, textFrame, lettersFrame, actionFrame
@@ -178,7 +225,9 @@ def createGame():
 
 def startGame(menuWin):
     menuWin.destroy()
-    createGame()
+    createGame()  
+    loadImgs()
+    createEnemies()
     draw()
     game.mainloop()
 
