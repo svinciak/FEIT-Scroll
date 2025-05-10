@@ -37,7 +37,7 @@ def createMenu(win):
         'relief': tk.RAISED, 
         'borderwidth': 10
     }
-    
+    # TODO definovat buttonConfig implicitne
     playButton = tk.Button(buttonsFrame, text="HRAJ", command=lambda: startGame(win), **buttonConfig)
     scoresButton = tk.Button(buttonsFrame, text="SKÓRE", command=showScores, **buttonConfig)
     optionsButton = tk.Button(buttonsFrame, text="NASTAVENIA", command=showOptions, **buttonConfig)
@@ -78,11 +78,11 @@ def showOptions():
 
 def showHelp():
     PlaySound('buttonClick.wav', 1)
-    messagebox.showinfo("Pomoc", "Ani ja neviem jak sa to hra")
+    messagebox.showinfo("Pomoc", "V tejto hre je tvojou úlohou skladať platné slová z ponúkaných písmen, aby si porazil nepriateľov v dungeonoch. Každé správne slovo poškodí nepriateľa a získaš zaň XP (skúsenostné body). Postupne tak môžeš prejsť všetky levely.")
 
 def showAbout():
     PlaySound('buttonClick.wav', 1)
-    messagebox.showinfo("O hre", "moderná simulácia vojny na ukrajine, len na vzdelávacie účely")
+    messagebox.showinfo("O hre", "Semestrálna práca (Letný semester) - Marek Kerata")
 
 #------#
 # MAPA #
@@ -94,18 +94,27 @@ def createMap():
     menuCanvas = tk.Canvas(levelWin, bg='red', width=500, height=500)
     menuCanvas.pack()
     
-    level1Button = tk.Button(levelWin, text='Level 1', command=lambda: startLevel(levelWin, 1))
+    level1Button = tk.Button(levelWin, text='Level 1', font=('Arial', 30), command=lambda: startLevel(levelWin, 1))
     menuCanvas.create_window(250, 150, window=level1Button)
-    
-    level1Button = tk.Button(levelWin, text='Level 2', command=lambda: startLevel(levelWin, 2))
-    menuCanvas.create_window(250, 250, window=level1Button)
-    
-    level1Button = tk.Button(levelWin, text='Level 3', command=lambda: startLevel(levelWin, 3))
-    menuCanvas.create_window(250, 350, window=level1Button)
+
+    if dungeonLevel  >= 2:
+        level2Button = tk.Button(levelWin, text='Level 2', font=('Arial', 30), command=lambda: startLevel(levelWin, 2))
+        menuCanvas.create_window(250, 250, window=level2Button)
+    else:
+        menuCanvas.create_text(250, 250, text="Level 2 zamknutý", font=('Arial', 30))
+
+    if dungeonLevel  >= 3:
+        level3Button = tk.Button(levelWin, text='Level 3', font=('Arial', 30), command=lambda: startLevel(levelWin, 3))
+        menuCanvas.create_window(250, 350, window=level3Button)
+    else:
+        menuCanvas.create_text(250, 350, text="Level 3 zamknutý", font=('Arial', 30))
     
     # nastavit cez return ako cislo mapy, a potom vytvorit game
     
 def startLevel(levelWin, level):
+    global unlockedLevels, dungeonLevel, enemyCount
+    dungeonLevel = level
+    enemyCount = level + 1
     levelWin.destroy()
     createGame(level)
 
@@ -120,7 +129,9 @@ def startLevel(levelWin, level):
 
 
 dungeonLevel = 1 
+unlockedLevels = 1
 playerHealth = 100
+score = 100
 enemyCount = 1
 frameImgs = []
 usedWords = []
@@ -131,13 +142,18 @@ selectedLetters = []
 clickedOrder = []
 enemies = []
 batImgs = []
+slimeImgs = []
 animationID = None  
 currentImg = 0     
 enemy = None  
+xp = 0
+helpUnlocked = False
+wordsGuessed = 0
+
 
 
 def makeActionButtons():
-    global actionButtons
+    global actionButtons, helpButton
     actionButtons = []
 
     submitButton = tk.Button(
@@ -176,38 +192,58 @@ def makeActionButtons():
     helpButton = tk.Button(
         actionFrame,
         text="Pomoc",
-        bg='white',
+        bg='white' if helpUnlocked else 'gray',
         font=("ARIAL", 14),
         width=12,
         height=1,
-        command=finishWord
-    ).grid(row=0, column=3, padx=5, pady=10)
+        command=finishWord,
+        state = tk.NORMAL if helpUnlocked else tk.DISABLED
+    )
+    helpButton.grid(row=0, column=3, padx=5, pady=10)
     actionButtons.append(helpButton)
 
 #min 3 znaky, musi byt vo wordList, nesmie byt pouzite, da sa urobit z dostupnych pismen
 def submitWord():
-    global usedWords, letters, clickedOrder, selectedLetters
+    global usedWords, letters, clickedOrder, selectedLetters, playerHealth, wordsGuessed
     print("POTVRD SLOVO TLACIDIELKO BOLO STLACENE")
     currentWord = ""
+    
     for b in clickedOrder:
         currentWord += b['text'].lower()
     if isValidWord(currentWord):
         print("Platné slovo:", currentWord)
         usedWords.append(currentWord)
+        wordsGuessed += 1
         damageEnemy(currentWord)
-        updateGameAfterWord(currentWord)
+        
+        if (playerHealth+20) <= 100:
+            playerHealth += 20
+        else:
+            playerHealth = 100
+            
+        for b in clickedOrder:
+            b.config(state='normal')
+            b.grid(row=0, column=letterButtons.index(b)+1, padx=5)
+        
+        clickedOrder = []
+        selectedLetters = []
+        
+        if wordsGuessed >= 3:
+            wordsGuessed = 0 
+            messagebox.showinfo("Info", "Uhádol si 3 slová! Generujem nové písmená.")
+            generateLetters()
+            usedWords = []
+            makeLetterButtons()
+            drawLetters()
+            
+        if not canMakeWords(letters, wordList, usedWords):
+            messagebox.showinfo("Info", "Uhádol si všetky možné slová! Pridávam nové písmená.")
+            generateLetters()
+            makeLetterButtons()
+            drawLetters()
     else:
         print("Neplatné slovo")
         resetLetters()
-    
-    #kontrola ci sa daju robit este slova
-    if not canMakeWords(letters, wordList, usedWords):
-        messagebox.showinfo("Info", "Uhádol si všetky možné slová! Pridávam nové písmená.")
-        generateLetters()
-        makeLetterButtons()
-        drawLetters()
-        clickedOrder = []
-        selectedLetters = []
 
 def resetLetters():
     global selectedLetters, clickedOrder
@@ -229,13 +265,43 @@ def shuffleLetters():
     resetLetters()
 
 def finishWord():
-    print("DOKONCI SLOVO TLACIDIELKO BOLO STLACENE")
+    global xp
+    possibleWords = []
+    
+    if xp >= 100:
+        xp -= 100
+        updateXpText()
+    else:
+        messagebox.showinfo("Nedostatok XP", "Nemáš dostatok XP na použitie pomoci!")
+        return
+    
+    for word in wordList:
+        if len(word) < 3:
+            continue
+        tempLetters = letters.copy()
+        isValid = True
+        for letter in word:
+            if letter in tempLetters:
+                tempLetters.remove(letter)
+            else:
+                isValid = False
+                break
+        if isValid and word not in usedWords:
+            possibleWords.append(word)
+    
+    if possibleWords:
+        possibleWords.sort(key=len, reverse=True)
+        suggestedWord = possibleWords[0]
+        messagebox.showinfo("Pomoc", "Slovo: " + suggestedWord)
+    else:
+        messagebox.showinfo("Pomoc", "Žiadne nové slová sa nedajú vytvoriť z týchto písmen")
 
-## transparent imgs: https://stackoverflow.com/questions/56554692/unable-to-put-transparent-png-over-a-normal-image-python-tkinter/56555164#56555164
 def loadImgs():
-    global batImgs
+    global batImgs, slimeImgs
     global frameImgs
+
     batImgs = []
+    slimeImgs = []
     try:
         for i in range(15):
             img = Image.open(f"sprites/bat/bat{i}.png")
@@ -243,6 +309,11 @@ def loadImgs():
         
         #frameImgs.append(Image.open("sprites/enemyFrameBg.png"))
         #print("nacitane")
+
+        print("nacitavanie obrazkov Slime")
+        for i in range(6):
+            img = Image.open(f"sprites/slime/slime{i}.png")
+            slimeImgs.append(ImageTk.PhotoImage(img, master=game))
     except Exception as e:
         print("chyba pri nacitani obrazkov: " + str(e))
 
@@ -285,23 +356,26 @@ def drawLetters():
         i+=1
 
 def canMakeWords(currentLetters, wordList, usedWords):
+    availableLetters = currentLetters.copy()
+    possibleWords = []
+    
     for word in wordList:
-        if word in usedWords:
+        if word in usedWords or len(word) < 3:
             continue
             
-        possible = True
-        tmpLetters = currentLetters.copy()
-        
-        for let in word:
-            if let not in tmpLetters:
-                possible = False
+        tmpLetters = availableLetters.copy()
+        valid = True
+        for letter in word:
+            if letter in tmpLetters:
+                tmpLetters.remove(letter)
+            else:
+                valid = False
                 break
-            tmpLetters.remove(let)
-            
-        if possible:
-            return True
-            
-    return False
+                
+        if valid:
+            possibleWords.append(word)
+    
+    return len(possibleWords) > 0
 
 # TODO nevyuzita funkcia 
 def generateLettersOUTDATED():
@@ -364,21 +438,46 @@ def isValidWord(word):
 def draw():
     pass
     
-def createEnemies(level, enemyType):
+def createEnemies(level, enemyType=None):
     global enemy, animationID
     
-    if enemyCount == 0:    
-        return 
+    enemyTypes = ["bat", "slime"]
+
+    if enemyType is None:
+        enemyType = rnd.choice(enemyTypes)
     
     if animationID:
         enemyCanvas.after_cancel(animationID)
+        animationID = None
     enemyCanvas.delete("enemy")
     
+    firstImg = batImgs[0] 
+    enemyHp = 70
+    match enemyType:
+        case "bat":  
+            firstImg = batImgs[0]
+            enemyHp = 50
+            posX = 150
+            posY = 150
+            logText("Stretol netopiera")
+        case "slime":
+            firstImg = slimeImgs[0]
+            enemyHp = 80
+            posX = 130
+            posY = 200
+            logText("Stretol si slajma")
+        case _ :
+            enemyHp = 50
+            firstImg = batImgs[0]
+            posX = 150
+            posY = 150
+            logText("Stretol si netopiera")
+            
     enemy = {
         "type": enemyType,
-        "hp": 50+(50*level),
+        "hp": enemyHp+(30*level),
         "sound": "este neni, napotom",
-        "id": enemyCanvas.create_image(150, 150, image=batImgs[0], tags="enemy")
+        "id": enemyCanvas.create_image(posX, posY, image=firstImg, tags="enemy")
     }
     enemies.append(enemy)
     animateEnemies()
@@ -386,29 +485,81 @@ def createEnemies(level, enemyType):
 def animateEnemies():
     global currentImg, animationID
     
-    if not batImgs or not enemy:
+    if not enemy:
         return
     
-    enemyCanvas.itemconfig(enemy["id"], image=batImgs[currentImg])
-    currentImg = (currentImg + 1) % len(batImgs)
-    
+    imgList = []
+    if enemy["type"] == "bat":
+        imgList = batImgs
+    elif enemy["type"] == "slime":
+        imgList = slimeImgs
+    else:
+        imgList = slimeImgs
+        
+        
+    currentImg = (currentImg + 1) % len(imgList)
+    enemyCanvas.itemconfig(enemy["id"], image=imgList[currentImg])
     # 100ms = 10 FPS
-    animationID = enemyCanvas.after(100, animateEnemies)
+    
+    if enemy["type"] == "bat":
+        animationID = enemyCanvas.after(100, animateEnemies)
+    else:
+        animationID = enemyCanvas.after(170, animateEnemies)
 
 def damageEnemy(word):
+    global xp, helpUnlocked, dungeonLevel, enemyCount
+    
+    #finishWord()
     dmg = 10*len(word)
     
+    xpGain = 50 + (dungeonLevel * 20)
+    xp += xpGain
+    logText(f"Získal si {xpGain} XP!", "yellow")
+    updateXpText()
+    print("XP: " + str(xp))
+    
+    if not helpUnlocked and xp >= 100:
+        helpUnlocked = True
+        logText("Pomoc tlacidlo bolo odomknute!", "green")
+        
+        helpButton.config(bg='white', state=tk.NORMAL)
+        
     currentEnemy = enemies[-1]
     currentEnemy["hp"]-=dmg
     print(currentEnemy["hp"])
     updateEnemyHeatlh(currentEnemy["hp"])
-    updateStatsFrameText()
+    updateHealthText()
+    logText(giveEnemyName(currentEnemy) + " stratil " + str(dmg) + " bodov zo života")
     
     if currentEnemy["hp"] <= 0:
-        print("netopierik zomrel :((")
-        messagebox.showinfo("sadge", "netopierik zomrel :((")
-        destroyEnemy(currentEnemy)
+        #print("netopierik zomrel :((")
+        healPlayer(20)
+        #messagebox.showinfo("sadge", "netopierik zomrel :((")
+        logText(f"Porazil si {giveEnemyName(currentEnemy)}!", "red")
         
+        destroyEnemy(currentEnemy)
+        enemyCount -= 1
+        
+        if enemyCount > 0:
+            createEnemies(dungeonLevel)
+            updateEnemyHeatlh(enemies[-1]["hp"])
+            updateHealthText()
+        else:
+            
+            if dungeonLevel < 3:
+                dungeonLevel += 1
+                messagebox.showinfo("Level dokončený", f"Postúpil si na level {dungeonLevel}!")
+                game.destroy()
+                createMap()
+            else:
+                messagebox.showinfo("Gratulujem!", "Dokončil si všetky levely!")
+                game.destroy()
+        
+def updateXpText():
+    global xpLab, helpButton
+    xpLab.config(text=str(xp) + "/100")
+    
+    
 def updateEnemyHeatlh(health):
     for i in range(5):
         remainingHealth = health - (i * 20)
@@ -429,8 +580,15 @@ def destroyEnemy(enemy):
         animationID = None
         
     enemyCanvas.delete(enemy["id"])
-    enemies.remove(enemy)
-    #createEnemies("bat")
+    if enemy in enemies:
+        enemies.remove(enemy)
+    
+def healPlayer(amount):
+    global playerHealth
+    if (playerHealth+amount) > 100:
+        playerHealth = 100
+    else:
+        playerHealth += amount
         
 def decreasePlayerHealth():
     global playerHealth, healthDecreaseTimer
@@ -441,12 +599,15 @@ def decreasePlayerHealth():
         
         # TODO: updatnut playerhealth displej
         
-        if playerHealth <= 0:
-            print("skapal si")
-            messagebox.showinfo("Game Over", "skapal si !")
-            if healthDecreaseTimer:
-                game.after_cancel(healthDecreaseTimer)
-            return
+    if playerHealth <= 0:
+        print("skapal si")
+        if healthDecreaseTimer:
+            game.after_cancel(healthDecreaseTimer)
+            healthDecreaseTimer = None
+        PlaySound(None, 0)  # Zastavi všetky zvuky
+        messagebox.showinfo("Koniec hry", "Zomrel si!")
+        game.destroy()
+        return
         
     updatePlayerHealth(playerHealth)
     healthDecreaseTimer = game.after(5000, decreasePlayerHealth)
@@ -497,7 +658,7 @@ def updatePlayerHealth(health):
         playerHearts[i].config(image=newImage)
         playerHearts[i].image = newImage
     
-    updateStatsFrameText()
+    updateHealthText()
 
 def drawPlayerHealth():
     global playerHearts, playerHeartImages
@@ -532,7 +693,7 @@ def drawPlayerHealth():
     except Exception:
         print("chyba pri nacitani obrazkov srdiecka (hrac) ")
 
-def statsFrameText():
+def healthText():
     global enemyHealthText, playerHealthText
     currentEnemy = enemies[-1]
     enemyHealthText = tk.Label(
@@ -553,11 +714,64 @@ def statsFrameText():
     enemyHealthText.place(x=295, rely=0.12, anchor='ne')
     playerHealthText.place(x=310,  rely=0.12, anchor='nw')
     
-def updateStatsFrameText():
+def updateHealthText():
     currentEnemy = enemies[-1]
     enemyHealthText.config(text="Život: "+str(currentEnemy["hp"]))
     playerHealthText.config(text="Život: " + str(playerHealth))
 
+def giveEnemyName(enemyType):
+    match enemyType:
+        case "bat":
+            return "Netopier"
+        case "slime":
+            return "Slime"
+        case _:
+            Exception("giveEnemyType: nenasiel sa nazov, davam default")
+            return "Netopier"
+
+def logText(text, color="white"):
+    textLog.config(state='normal')
+    if color != "white":
+        textLog.tag_config(color, foreground=color, font = ("ARIAL", 14, "bold"))
+        textLog.insert(tk.END, text + "\n", color)
+    else:
+        textLog.insert(tk.END, text + "\n")
+    textLog.see(tk.END)
+    textLog.config(state='normal')
+
+def statsText():
+    global xpLab
+    
+    currentEnemy = enemies[-1]
+    enemyName = tk.Label(
+        statsFrame, 
+        text="Nepriateľ: " + giveEnemyName(currentEnemy["type"]), 
+        font = tkfont.Font(family='Helvetica', size=20, weight='bold'),
+        bg="#7F7F7F", fg="cyan"
+        )
+    dungeonLvl = tk.Label(
+        statsFrame,
+        text="Dungeon level: " + str(dungeonLevel),
+        font = tkfont.Font(family='Helvetica', size=20, weight='bold'),
+        bg="#7F7F7F", fg="cyan"
+        )
+    scoreLab = tk.Label(
+        statsFrame,
+        text="Skóre: " + str(score),
+        font = tkfont.Font(family='Helvetica', size=20, weight='bold'),
+        bg="#7F7F7F", fg="yellow"
+        )
+    xpLab = tk.Label(
+        statsFrame,
+        text=f"XP: {xp}/100",
+        font = tkfont.Font(family='Helvetica', size=20, weight='bold'),
+        bg="#7F7F7F", fg="yellow"
+        )
+    enemyName.place(x=100, y=150)
+    dungeonLvl.place(x=100, y=220)
+    scoreLab.place(x=380, y=150)
+    xpLab.place(x=380, y=220)
+    
 def loadWordList():
     global wordList
     wordList = []
@@ -578,8 +792,39 @@ def loadWordList():
         print("nenacitali sa slova")
         wordList = ['byt', 'strom', 'jaskyna', 'kuzlo', 'pismeno', 'hra', 'poklad', 'dungeon']
 
+def endGame():
+    global animationID, healthDecreaseTimer, game
+    #game.after_cancel(animationID)
+    #game.after_cancel(healthDecreaseTimer)
+    #game.destroy()
+    
+    if animationID:
+        game.after_cancel(animationID)
+        animationID = None
+        
+    if healthDecreaseTimer:
+        game.after_cancel(healthDecreaseTimer)
+        healthDecreaseTimer = None
+    PlaySound(None, 0)
+
+    if game:
+        game.destroy()
+        game = None
+
 def createGame(level):
-    global game, enemyCanvas,statsFrame, textFrame, lettersFrame, actionFrame
+    global game, enemyCanvas,statsFrame, textFrame, lettersFrame, actionFrame, textLog
+    global playerHealth, enemies, usedWords, letters, clickedOrder, selectedLetters, letterButtons
+    global xp, helpUnlocked, wordsGuessed
+    
+    playerHealth = 100
+    enemies = []
+    usedWords = []
+    letters = []
+    clickedOrder = []
+    selectedLetters = []
+    letterButtons = []
+    helpUnlocked = False
+    wordsGuessed = 0
     
     game = tk.Tk()
     game.title("FEIT Crawler - Hra")
@@ -592,6 +837,7 @@ def createGame(level):
     
     loadImgs()
     loadWordList()
+    
     # ENEMY CANVAS
     enemyCanvas = tk.Canvas(game, width=300, height=300, highlightthickness=0)
     enemyCanvas.grid(row=0, column=0, sticky="nsew")
@@ -600,28 +846,52 @@ def createGame(level):
     enemyCanvas.background = enemyBgImg
     enemyCanvas.create_image(0, 0, anchor="nw", image=enemyBgImg)
     
-    # FRAMES - STATS,TEXT,LETTERS,ACTION
     statsFrame = tk.Frame(game, bg="yellow", width=600, height=300)
     img = ImageTk.PhotoImage(Image.open("sprites/statsFrameBg.png"))
     textFrameBgLabel = tk.Label(statsFrame, fg='cyan', compound='center', image=img)
     textFrameBgLabel.image = img
     textFrameBgLabel.place(x=0, y=0, relwidth=1, relheight=1)
     
-    textFrame = tk.Frame(game, bg="white", width=900, height=100)
-    img = ImageTk.PhotoImage(Image.open("sprites/textFrameBg.png"))
-    textFrameBgLabel = tk.Label(textFrame, text="chlipny hajzel", font=('ARIAL', 16), fg='cyan', compound='center', image=img)
-    textFrameBgLabel.image = img
-    textFrameBgLabel.place(x=0, y=0, relwidth=1, relheight=1)
+    # TEXT FRAME #
+    textFrame = tk.Frame(game, width=900, height=100)
+    textFrame.grid_propagate(False)
     
+    bgImg = ImageTk.PhotoImage(Image.open("sprites/textFrameBg.png"))
+    bgLabel = tk.Label(textFrame, image=bgImg)
+    bgLabel.image = bgImg
+    bgLabel.place(x=0, y=0, relwidth=1, relheight=1)
+    
+    logFrame = tk.Frame(textFrame, bg='#7F7F7F')
+    logFrame.place(relx=0.5, rely=0.5, anchor="center", width=870, height=80)
+    
+    textScroll = tk.Scrollbar(logFrame)
+    textLog = tk.Text(
+        logFrame,
+        wrap=tk.WORD,
+        yscrollcommand=textScroll.set,
+        bg='#7F7F7F',
+        fg='white',
+        font=('Arial', 16, 'bold'),
+        padx=10,
+        pady=5,
+        state='normal',
+        borderwidth=10
+    )
+    textScroll.config(command=textLog.yview)
+    textLog.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+    textScroll.pack(side=tk.RIGHT, fill=tk.Y)
+    
+    # LETTERS FRAME #
     lettersFrame = tk.Frame(game, bg="black", width=900, height=100)
     img = ImageTk.PhotoImage(Image.open("sprites/lettersFrameBg.png"))
-    textFrameBgLabel = tk.Label(lettersFrame, text="text text text", font=('ARIAL', 16), fg='cyan', compound='center', image=img)
+    textFrameBgLabel = tk.Label(lettersFrame, compound='center', image=img)
     textFrameBgLabel.image = img
     textFrameBgLabel.place(x=0, y=0, relwidth=1, relheight=1)
     
+    # ACTION FRAME #
     actionFrame = tk.Frame(game, bg="blue", width=900, height=80)
     img = ImageTk.PhotoImage(Image.open("sprites/actionFrameBg.png"))
-    textFrameBgLabel = tk.Label(actionFrame, text="spinavy ogrgel", font=('ARIAL', 16), fg='cyan', compound='center', image=img)
+    textFrameBgLabel = tk.Label(actionFrame, compound='center', image=img)
     textFrameBgLabel.image = img
     textFrameBgLabel.place(x=0, y=0, relwidth=1, relheight=1)
     
@@ -645,18 +915,19 @@ def createGame(level):
     drawLetters()
     
     # enemiesFrame
-    createEnemies(level, "bat")
+    #createEnemies(level, "slime")
+    for _ in range(enemyCount):
+        createEnemies(level)
     
     # statsFrame texty
-    statsFrameText()
+    healthText()
+    statsText()
     
     # actionFrame
     makeActionButtons()
     
-    # hudbicka 
+    # ostatne
     PlaySound('theme.wav', 1)
-    
-    # zacat uberat zivoty hracovi
     decreasePlayerHealth()
     
 #-------#
@@ -672,6 +943,6 @@ def onStartup():
     return win
 
 
-# Spustenie aplikácie
+# startup
 root = onStartup()
 root.mainloop()
