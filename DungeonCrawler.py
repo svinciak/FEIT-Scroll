@@ -484,10 +484,8 @@ def createEnemies(level, enemyType=None):
 
 def animateEnemies():
     global currentImg, animationID
-    
     if not enemy:
         return
-    
     imgList = []
     if enemy["type"] == "bat":
         imgList = batImgs
@@ -495,12 +493,9 @@ def animateEnemies():
         imgList = slimeImgs
     else:
         imgList = slimeImgs
-        
-        
     currentImg = (currentImg + 1) % len(imgList)
     enemyCanvas.itemconfig(enemy["id"], image=imgList[currentImg])
     # 100ms = 10 FPS
-    
     if enemy["type"] == "bat":
         animationID = enemyCanvas.after(100, animateEnemies)
     else:
@@ -553,7 +548,9 @@ def damageEnemy(word):
                 createMap()
             else:
                 messagebox.showinfo("Gratulujem!", "Dokončil si všetky levely!")
+                PlaySound(None, 0)
                 game.destroy()
+                endGame()
         
 def updateXpText():
     global xpLab, helpButton
@@ -597,10 +594,8 @@ def decreasePlayerHealth():
         playerHealth -= 5 
         print(f"player health: {playerHealth}")
         
-        # TODO: updatnut playerhealth displej
-        
     if playerHealth <= 0:
-        print("skapal si")
+        print("zomrel si")
         if healthDecreaseTimer:
             game.after_cancel(healthDecreaseTimer)
             healthDecreaseTimer = None
